@@ -13,6 +13,8 @@ let editingId = null;
 let selectedStatus = "quiero_leer";
 let selectedRating = 0;
 let searchDebounce = null;
+let currentFilter = "all";
+let currentViewMode = "grid";
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -69,12 +71,31 @@ function renderGrid(group, gridId, emptyId) {
   let list;
   if (group === "leido_leyendo") {
     list = books.filter(b => b.status === "leido" || b.status === "leyendo");
+    if (currentFilter !== "all") {
+      list = list.filter(b => b.status === currentFilter);
+    }
   } else {
     list = books.filter(b => b.status === "quiero_leer");
   }
 
   grid.innerHTML = "";
+
+  if (currentViewMode === "list") {
+    grid.classList.add("view-list");
+  } else {
+    grid.classList.remove("view-list");
+  }
+
   if (list.length === 0) {
+    if (group === "leido_leyendo") {
+      if (currentFilter === "leyendo") {
+        empty.innerHTML = "No tienes ningún libro en estado <strong>Leyendo</strong> en este momento.";
+      } else if (currentFilter === "leido") {
+        empty.innerHTML = "No tienes ningún libro en estado <strong>Leído</strong> en este momento.";
+      } else {
+        empty.innerHTML = "Aún no has añadido ningún libro leído. Pulsa el botón <strong>+</strong> para empezar tu estantería.";
+      }
+    }
     empty.hidden = false;
     return;
   }
@@ -105,28 +126,33 @@ function buildCard(book) {
   const body = document.createElement("div");
   body.className = "book-body";
 
+  const infoMain = document.createElement("div");
+  infoMain.className = "book-info-main";
+
   const title = document.createElement("div");
   title.className = "book-title";
   title.textContent = book.title || "Sin título";
-  body.appendChild(title);
+  infoMain.appendChild(title);
 
   const meta = document.createElement("div");
   meta.className = "book-meta";
   meta.textContent = [book.author, book.year, book.publisher].filter(Boolean).join(" · ");
-  body.appendChild(meta);
+  infoMain.appendChild(meta);
 
   const stars = document.createElement("div");
   const filled = book.rating || 0;
   stars.className = "book-stars" + (filled === 0 ? " empty" : "");
   stars.textContent = filled === 0 ? "☆☆☆☆☆" : "★".repeat(filled) + "☆".repeat(5 - filled);
-  body.appendChild(stars);
+  infoMain.appendChild(stars);
 
   if (book.comments) {
     const c = document.createElement("div");
     c.className = "book-comments";
     c.textContent = book.comments;
-    body.appendChild(c);
+    infoMain.appendChild(c);
   }
+
+  body.appendChild(infoMain);
 
   const footer = document.createElement("div");
   footer.className = "book-footer";
@@ -451,12 +477,44 @@ function bindEvents() {
       currentTab = tab.dataset.tab;
       $$(".tab-panel").forEach(p => p.classList.remove("active"));
       $("#panel-" + tab.dataset.tab).classList.add("active");
+
+      const filterGroup = $("#filterGroup");
+      if (currentTab === "wishlist") {
+        filterGroup.style.display = "none";
+      } else {
+        filterGroup.style.display = "flex";
+      }
     });
   });
 
   $("#btnAdd").addEventListener("click", () => openModal(null));
   $("#modalClose").addEventListener("click", closeModal);
   $("#modalOverlay").addEventListener("click", (e) => { if (e.target.id === "modalOverlay") closeModal(); });
+
+  // Eventos de Filtro de Estado
+  $$(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      $$(".filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentFilter = btn.dataset.filter;
+      renderAll();
+    });
+  });
+
+  // Eventos de Alternar Modo de Vista (Cuadrícula / Lista)
+  $("#btnViewGrid").addEventListener("click", () => {
+    $("#btnViewGrid").classList.add("active");
+    $("#btnViewList").classList.remove("active");
+    currentViewMode = "grid";
+    renderAll();
+  });
+
+  $("#btnViewList").addEventListener("click", () => {
+    $("#btnViewList").classList.add("active");
+    $("#btnViewGrid").classList.remove("active");
+    currentViewMode = "list";
+    renderAll();
+  });
 
   $("#searchInput").addEventListener("input", handleSearchInput);
   document.addEventListener("click", (e) => {

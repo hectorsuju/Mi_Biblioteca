@@ -310,6 +310,126 @@ main{ max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 .pill-btn.small{ padding: 7px 10px; font-size: 0.72rem; }
 .pill-btn:hover{ background: var(--paper-deep); }
 
+/* ---------- CONTROLS BAR (Filters & View Toggles) ---------- */
+.controls-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16px 0 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.filter-group {
+  display: flex;
+  gap: 6px;
+  background: var(--paper-deep);
+  padding: 4px;
+  border-radius: 24px;
+}
+.filter-btn {
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  padding: 7px 16px;
+  font-size: 0.82rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.filter-btn:hover {
+  color: var(--ink);
+}
+.filter-btn.active {
+  background: var(--paper-card);
+  color: var(--ink);
+  box-shadow: 0 2px 6px rgba(33,48,43,0.1);
+  font-weight: 600;
+}
+.view-toggle-group {
+  display: flex;
+  background: var(--paper-deep);
+  padding: 4px;
+  border-radius: 24px;
+  gap: 2px;
+}
+.view-btn {
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.view-btn:hover {
+  color: var(--ink);
+}
+.view-btn.active {
+  background: var(--paper-card);
+  color: var(--ink);
+  box-shadow: 0 2px 6px rgba(33,48,43,0.1);
+}
+.view-btn svg {
+  display: block;
+}
+
+/* ---------- VIEW MAIN INFO CONTAINER ---------- */
+.book-info-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+/* ---------- LIST VIEW MODIFIER ---------- */
+.grid.view-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.grid.view-list .book-card {
+  flex-direction: row;
+  height: 96px;
+  align-items: center;
+}
+.grid.view-list .book-cover {
+  width: 64px;
+  height: 96px;
+  aspect-ratio: auto;
+  flex-shrink: 0;
+}
+.grid.view-list .status-flag {
+  display: none;
+}
+.grid.view-list .book-body {
+  padding: 8px 16px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 20px;
+}
+.grid.view-list .book-info-main {
+  min-width: 0;
+}
+.grid.view-list .book-comments {
+  display: none;
+}
+.grid.view-list .book-footer {
+  margin-top: 0;
+  padding-top: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
 /* ---------- MODAL ---------- */
 .modal-overlay{
   position: fixed;
@@ -503,6 +623,24 @@ main{ max-width: 1100px; margin: 0 auto; padding: 0 24px; }
   .toolbar-float{ left: 16px; bottom: 16px; }
   .fab{ right:16px; bottom:16px; }
   .field-row{ flex-direction:column; }
+
+  /* Responsive List View adjustments */
+  .grid.view-list .book-card {
+    height: auto;
+    min-height: 96px;
+  }
+  .grid.view-list .book-body {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+  .grid.view-list .book-footer {
+    width: 100%;
+    justify-content: space-between;
+    border-top: 1px solid var(--paper-deep);
+    padding-top: 8px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce){
