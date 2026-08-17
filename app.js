@@ -185,7 +185,7 @@ async function renderShelf() {
   try {
     const results = [];
     for (const author of seeds) {
-      const res = await fetch(`https://openlibrary.org/search.json?author=${encodeURIComponent(author)}&limit=6`);
+      const res = await fetch(`https://openlibrary.org/search.json?author=${encodeURIComponent(author)}&limit=6&fields=title,author_name,cover_i`);
       if (!res.ok) continue;
       const data = await res.json();
       (data.docs || []).forEach(d => results.push(d));
@@ -351,7 +351,7 @@ async function runSearch(q) {
   list.hidden = false;
   list.innerHTML = `<div class="ac-empty">Buscando...</div>`;
   try {
-    const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=6`);
+    const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=6&fields=title,author_name,first_publish_year,publisher,subject,cover_i`);
     const data = await res.json();
     const docs = data.docs || [];
     if (docs.length === 0) {
