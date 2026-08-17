@@ -1,0 +1,38 @@
+[
+  {
+    "id": "b_demo1",
+    "title": "Cien años de soledad",
+    "author": "Gabriel García Márquez",
+    "year": "1967",
+    "publisher": "Editorial Sudamericana",
+    "genre": "Realismo mágico",
+    "cover": "https://covers.openlibrary.org/b/id/8231856-M.jpg",
+    "status": "leido",
+    "rating": 5,
+    "comments": "Una relectura obligada cada pocos años."
+  },
+  {
+    "id": "b_demo2",
+    "title": "Project Hail Mary",
+    "author": "Andy Weir",
+    "year": "2021",
+    "publisher": "Ballantine Books",
+    "genre": "Ciencia ficción",
+    "cover": "",
+    "status": "leyendo",
+    "rating": 0,
+    "comments": ""
+  },
+  {
+    "id": "b_demo3",
+    "title": "Sapiens",
+    "author": "Yuval Noah Harari",
+    "year": "2011",
+    "publisher": "Debate",
+    "genre": "Ensayo",
+    "cover": "",
+    "status": "quiero_leer",
+    "rating": 0,
+    "comments": ""
+  }
+]
