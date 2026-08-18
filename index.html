@@ -69,6 +69,9 @@
     &#8679; Importar
     <input type="file" id="fileImport" accept="application/json" hidden>
   </label>
+  <button class="pill-btn" id="btnGitSettings" title="Configurar sincronización con GitHub">
+    &#9729; GitHub <span class="dot-status red" id="gitSyncStatus"></span>
+  </button>
 </div>
 
 <!-- MODAL: Add / Edit book -->
@@ -153,6 +156,44 @@
     <div class="modal-actions">
       <button class="btn-secondary" id="btnDelete" hidden>Eliminar libro</button>
       <button class="btn-primary" id="btnSave">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: GitHub Configuration -->
+<div class="modal-overlay" id="gitModalOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="gitModalTitle">
+    <button class="modal-close" id="gitModalClose" aria-label="Cerrar">&times;</button>
+    <h2 id="gitModalTitle">Sincronización con GitHub</h2>
+    
+    <p class="modal-help-text">Guarda tu biblioteca directamente en un repositorio de GitHub. Si borras el historial de tu navegador, solo tendrás que volver a introducir tus credenciales aquí para recuperar todos tus libros.</p>
+    
+    <div class="field">
+      <label for="gitToken">Token de acceso personal (PAT)</label>
+      <input type="password" id="gitToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxx" autocomplete="new-password">
+      <p class="input-tip">Necesitas un token clásico o de grano fino con permisos de lectura y escritura en repositorios (<code>contents: write</code>).</p>
+    </div>
+    
+    <div class="field">
+      <label for="gitRepo">Repositorio</label>
+      <input type="text" id="gitRepo" placeholder="nombre-usuario/nombre-repositorio" autocomplete="off">
+      <p class="input-tip">El formato debe ser: <code>usuario/repositorio</code>.</p>
+    </div>
+    
+    <div class="field-row">
+      <div class="field">
+        <label for="gitBranch">Rama</label>
+        <input type="text" id="gitBranch" placeholder="main" value="main">
+      </div>
+      <div class="field">
+        <label for="gitPath">Ruta del archivo</label>
+        <input type="text" id="gitPath" placeholder="books.json" value="books.json">
+      </div>
+    </div>
+    
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btnGitDisconnect">Desconectar</button>
+      <button class="btn-primary" id="btnGitSave">Conectar y Guardar</button>
     </div>
   </div>
 </div>

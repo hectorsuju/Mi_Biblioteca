@@ -5,6 +5,7 @@
    ========================================================= */
 
 const STORAGE_KEY = "mi_biblioteca_books_v1";
+const GIT_CONFIG_KEY = "mi_biblioteca_git_config_v1";
 const DATA_FILE = "books.json"; // se intenta cargar al arrancar si localStorage está vacío
 
 let books = [];
@@ -15,6 +16,8 @@ let selectedRating = 0;
 let searchDebounce = null;
 let currentFilter = "all";
 let currentViewMode = "grid";
+let gitConfig = null;
+let gitFileSha = null;
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -29,6 +32,49 @@ async function init() {
 }
 
 async function loadBooks() {
+  // Cargar configuración de GitHub
+  const savedGit = localStorage.getItem(GIT_CONFIG_KEY);
+  if (savedGit) {
+    try {
+      gitConfig = JSON.parse(savedGit);
+    } catch (e) {
+      gitConfig = null;
+    }
+  }
+
+  if (gitConfig && gitConfig.token && gitConfig.repo) {
+    updateGitStatusUI("yellow");
+    try {
+      const url = `https://api.github.com/repos/${gitConfig.repo}/contents/${gitConfig.path || "books.json"}?ref=${gitConfig.branch || "main"}`;
+      const res = await fetch(url, {
+        headers: {
+          "Authorization": `token ${gitConfig.token}`,
+          "Cache-Control": "no-cache"
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        gitFileSha = data.sha;
+        const content = fromBase64Utf8(data.content);
+        books = JSON.parse(content);
+        
+        // Guardar respaldo local
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+        updateGitStatusUI("green");
+        return;
+      } else {
+        throw new Error("Respuesta no OK de GitHub");
+      }
+    } catch (e) {
+      console.error("Error al cargar desde GitHub, usando respaldo local:", e);
+      showToast("Error de sincronización con GitHub. Usando datos locales.");
+      updateGitStatusUI("yellow");
+      // fallthrough a cargar del localStorage local
+    }
+  } else {
+    updateGitStatusUI("red");
+  }
+
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
@@ -50,8 +96,57 @@ async function loadBooks() {
   }
 }
 
-function saveBooks() {
+async function saveBooks() {
+  // Guardar respaldo local
   localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+
+  if (gitConfig && gitConfig.token && gitConfig.repo) {
+    updateGitStatusUI("yellow");
+    try {
+      const url = `https://api.github.com/repos/${gitConfig.repo}/contents/${gitConfig.path || "books.json"}?ref=${gitConfig.branch || "main"}`;
+      
+      // 1. Obtener el SHA actual para evitar colisiones
+      const getRes = await fetch(url, {
+        headers: { "Authorization": `token ${gitConfig.token}` }
+      });
+      
+      let sha = null;
+      if (getRes.ok) {
+        const getData = await getRes.json();
+        sha = getData.sha;
+      }
+
+      // 2. Realizar el PUT
+      const payload = {
+        message: "Actualizar biblioteca desde Mi Biblioteca",
+        content: toBase64Utf8(JSON.stringify(books, null, 2))
+      };
+      if (sha) {
+        payload.sha = sha;
+      }
+
+      const putRes = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "Authorization": `token ${gitConfig.token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (putRes.ok) {
+        const putData = await putRes.json();
+        gitFileSha = putData.content.sha;
+        updateGitStatusUI("green");
+      } else {
+        throw new Error("No se pudo guardar en GitHub");
+      }
+    } catch (e) {
+      console.error("Error al guardar en GitHub:", e);
+      showToast("Error al guardar en GitHub");
+      updateGitStatusUI("yellow");
+    }
+  }
 }
 
 function uid() {
@@ -256,6 +351,147 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str || "";
   return div.innerHTML;
+}
+
+/* ---------------- SINCRONIZACIÓN DE GITHUB ---------------- */
+function toBase64Utf8(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+function fromBase64Utf8(base64) {
+  return decodeURIComponent(escape(atob(base64.replace(/\s/g, ""))));
+}
+
+function updateGitStatusUI(status) {
+  const dot = $("#gitSyncStatus");
+  if (!dot) return;
+  dot.className = "dot-status " + status;
+  if (status === "green") {
+    dot.parentElement.title = "Conectado y Sincronizado con GitHub";
+  } else if (status === "yellow") {
+    dot.parentElement.title = "Problema de sincronización o cargando...";
+  } else {
+    dot.parentElement.title = "Sincronización desconfigurada";
+  }
+}
+
+function openGitModal() {
+  const overlay = $("#gitModalOverlay");
+  $("#gitToken").value = gitConfig?.token || "";
+  $("#gitRepo").value = gitConfig?.repo || "";
+  $("#gitBranch").value = gitConfig?.branch || "main";
+  $("#gitPath").value = gitConfig?.path || "books.json";
+  overlay.hidden = false;
+}
+
+function closeGitModal() {
+  $("#gitModalOverlay").hidden = true;
+}
+
+function disconnectGit() {
+  if (confirm("¿Seguro que quieres desconectar la sincronización de GitHub?\n(Tus libros se conservarán en el navegador y en GitHub, pero no se seguirán sincronizando)")) {
+    gitConfig = null;
+    gitFileSha = null;
+    localStorage.removeItem(GIT_CONFIG_KEY);
+    updateGitStatusUI("red");
+    closeGitModal();
+    showToast("GitHub desconectado");
+  }
+}
+
+async function testAndConnectGit() {
+  const token = $("#gitToken").value.trim();
+  const repo = $("#gitRepo").value.trim();
+  const branch = $("#gitBranch").value.trim() || "main";
+  const path = $("#gitPath").value.trim() || "books.json";
+
+  if (!token || !repo) {
+    showToast("Introduce el Token y el Repositorio");
+    return;
+  }
+
+  const connectBtn = $("#btnGitSave");
+  const originalText = connectBtn.textContent;
+  connectBtn.textContent = "Conectando...";
+  connectBtn.disabled = true;
+
+  try {
+    const url = `https://api.github.com/repos/${repo}/contents/${path}?ref=${branch}`;
+    const res = await fetch(url, {
+      headers: { "Authorization": `token ${token}` }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const sha = data.sha;
+      const content = fromBase64Utf8(data.content);
+      let parsedBooks = [];
+      try {
+        parsedBooks = JSON.parse(content);
+      } catch (e) {
+        console.error("Error al parsear archivo JSON existente en GitHub:", e);
+      }
+
+      connectBtn.textContent = originalText;
+      connectBtn.disabled = false;
+
+      const confirmMsg = `El archivo ya existe en GitHub con ${parsedBooks.length} libros.\n\n¿Quieres IMPORTAR esos libros y sobrescribir tu lista local? (Pulsa ACEPTAR)\n\n¿O quieres SOBRESCRIBIR el archivo de GitHub con tus libros locales actuales? (Pulsa CANCELAR)`;
+      if (confirm(confirmMsg)) {
+        books = parsedBooks;
+        gitFileSha = sha;
+        gitConfig = { token, repo, branch, path };
+        localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+        renderAll();
+        updateGitStatusUI("green");
+        closeGitModal();
+        showToast("¡Conectado! Libros importados de GitHub");
+      } else {
+        gitConfig = { token, repo, branch, path };
+        localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
+        await saveBooks();
+        closeGitModal();
+        showToast("¡Conectado! Archivo sobrescrito en GitHub");
+      }
+    } else if (res.status === 404) {
+      gitConfig = { token, repo, branch, path };
+      localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
+      
+      const payload = {
+        message: "Crear archivo de biblioteca",
+        content: toBase64Utf8(JSON.stringify(books, null, 2))
+      };
+      
+      const createRes = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "Authorization": `token ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      connectBtn.textContent = originalText;
+      connectBtn.disabled = false;
+
+      if (createRes.ok) {
+        const createData = await createRes.json();
+        gitFileSha = createData.content.sha;
+        updateGitStatusUI("green");
+        closeGitModal();
+        showToast("¡Conectado! Archivo creado en GitHub");
+      } else {
+        throw new Error("No se pudo crear el archivo en GitHub");
+      }
+    } else {
+      throw new Error("Credenciales inválidas o sin permisos");
+    }
+  } catch (err) {
+    console.error(err);
+    connectBtn.textContent = originalText;
+    connectBtn.disabled = false;
+    showToast("Error de conexión. Verifica tu Token y Repositorio.");
+  }
 }
 
 /* ---------------- MODAL ---------------- */
@@ -547,6 +783,13 @@ function bindEvents() {
   $("#btnExport").addEventListener("click", exportJson);
   $("#fileImport").addEventListener("change", importJson);
 
+  // Eventos de Configuración de GitHub
+  $("#btnGitSettings").addEventListener("click", openGitModal);
+  $("#gitModalClose").addEventListener("click", closeGitModal);
+  $("#gitModalOverlay").addEventListener("click", (e) => { if (e.target.id === "gitModalOverlay") closeGitModal(); });
+  $("#btnGitSave").addEventListener("click", testAndConnectGit);
+  $("#btnGitDisconnect").addEventListener("click", disconnectGit);
+
   $("#shelfPrev").addEventListener("click", () => {
     $("#shelfTrack").scrollBy({ left: -260, behavior: "smooth" });
   });
@@ -555,6 +798,9 @@ function bindEvents() {
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !$("#modalOverlay").hidden) closeModal();
+    if (e.key === "Escape") {
+      if (!$("#modalOverlay").hidden) closeModal();
+      if (!$("#gitModalOverlay").hidden) closeGitModal();
+    }
   });
 }

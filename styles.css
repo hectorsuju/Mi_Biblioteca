@@ -617,6 +617,42 @@ main{ max-width: 1100px; margin: 0 auto; padding: 0 24px; }
   z-index: 60;
 }
 
+/* ---------- GITHUB SYNC STATUS ---------- */
+.dot-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.dot-status.red {
+  background: var(--clay);
+  box-shadow: 0 0 6px rgba(139,58,58,0.6);
+}
+.dot-status.green {
+  background: var(--moss);
+  box-shadow: 0 0 6px rgba(92,122,94,0.6);
+}
+.dot-status.yellow {
+  background: var(--brass);
+  box-shadow: 0 0 6px rgba(166,119,44,0.6);
+}
+
+.modal-help-text {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin-bottom: 18px;
+  line-height: 1.4;
+}
+
+.input-tip {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  opacity: 0.85;
+  margin: 4px 0 0;
+}
+
 @media (max-width: 560px){
   .header-top h1{ font-size: 1.9rem; }
   .shelf{ padding: 0 40px; }
