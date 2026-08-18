@@ -63,17 +63,6 @@
 
 <button class="fab" id="btnAdd" aria-label="Añadir libro">+</button>
 
-<div class="toolbar-float">
-  <button class="pill-btn" id="btnExport" title="Descargar tu biblioteca como JSON">&#8681; Exportar</button>
-  <label class="pill-btn" title="Cargar un archivo JSON de tu biblioteca">
-    &#8679; Importar
-    <input type="file" id="fileImport" accept="application/json" hidden>
-  </label>
-  <button class="pill-btn" id="btnGitSettings" title="Configurar sincronización con GitHub">
-    &#9729; GitHub <span class="dot-status red" id="gitSyncStatus"></span>
-  </button>
-</div>
-
 <!-- MODAL: Add / Edit book -->
 <div class="modal-overlay" id="modalOverlay" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -199,6 +188,22 @@
 </div>
 
 <div class="toast" id="toast" hidden></div>
+
+<footer class="shelf-footer-main">
+  <div class="footer-content">
+    <p>&copy; Mi Biblioteca — Tus lecturas a buen recaudo.</p>
+    <div class="footer-actions">
+      <button class="pill-btn" id="btnExport" title="Descargar tu biblioteca como JSON">&#8681; Exportar</button>
+      <label class="pill-btn" title="Cargar un archivo JSON de tu biblioteca">
+        &#8679; Importar
+        <input type="file" id="fileImport" accept="application/json" hidden>
+      </label>
+      <button class="pill-btn" id="btnGitSettings" title="Configurar sincronización con GitHub">
+        &#9729; GitHub <span class="dot-status red" id="gitSyncStatus"></span>
+      </button>
+    </div>
+  </div>
+</footer>
 
 <script src="app.js"></script>
 </body>
