@@ -780,8 +780,7 @@ function bindEvents() {
   $("#btnSave").addEventListener("click", saveFromModal);
   $("#btnDelete").addEventListener("click", deleteCurrent);
 
-  $("#btnExport").addEventListener("click", exportJson);
-  $("#fileImport").addEventListener("change", importJson);
+
 
   // Eventos de Configuración de GitHub
   $("#btnGitSettings").addEventListener("click", openGitModal);
