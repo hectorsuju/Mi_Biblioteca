@@ -82,5 +82,17 @@
     "status": "quiero_leer",
     "rating": 0,
     "comments": ""
+  },
+  {
+    "id": "b_mt0765lr_oyd4o",
+    "title": "Fundamentos del diseño",
+    "year": "1998",
+    "author": "Wucius Womg",
+    "publisher": "Editorial Gustavo Gili",
+    "genre": "",
+    "cover": "https://covers.openlibrary.org/b/id/8525103-M.jpg",
+    "status": "quiero_leer",
+    "rating": 0,
+    "comments": ""
   }
 ]
