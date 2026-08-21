@@ -94,5 +94,17 @@
     "status": "quiero_leer",
     "rating": 0,
     "comments": ""
+  },
+  {
+    "id": "b_mt33arw2_v66o9",
+    "title": "Mecanoscrit del segon origen",
+    "year": "1974",
+    "author": "Manuel de Pedrolo",
+    "publisher": "Saltadera",
+    "genre": "Fiction, science fiction, general",
+    "cover": "https://covers.openlibrary.org/b/id/10856767-M.jpg",
+    "status": "quiero_leer",
+    "rating": 0,
+    "comments": ""
   }
 ]
