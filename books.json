@@ -106,5 +106,17 @@
     "status": "quiero_leer",
     "rating": 0,
     "comments": ""
+  },
+  {
+    "id": "b_mt4acl2x_0cxrt",
+    "title": "The Lifecycle of Software Objects",
+    "year": "2010",
+    "author": "Ted Chiang",
+    "publisher": "Delos Books",
+    "genre": "Novelle",
+    "cover": "https://covers.openlibrary.org/b/id/8022362-M.jpg",
+    "status": "quiero_leer",
+    "rating": 0,
+    "comments": ""
   }
 ]
