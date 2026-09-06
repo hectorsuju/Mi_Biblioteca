@@ -89,5 +89,18 @@
     "rating": 0,
     "comments": "",
     "url": "https://openlibrary.org/works/OL27448W"
+  },
+  {
+    "id": "b_mtq4pvzq_bsg5q",
+    "title": "Querer no es poder",
+    "year": "2023",
+    "author": "Arnold M. Washton",
+    "publisher": "Ediciones Paidós",
+    "genre": "",
+    "cover": "https://covers.openlibrary.org/b/id/13662110-M.jpg",
+    "status": "quiero_leer",
+    "rating": 0,
+    "readDate": "",
+    "comments": ""
   }
 ]
