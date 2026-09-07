@@ -486,24 +486,15 @@ async function testAndConnectGit() {
       connectBtn.textContent = originalText;
       connectBtn.disabled = false;
 
-      const confirmMsg = `El archivo ya existe en GitHub con ${parsedBooks.length} libros.\n\n¿Quieres IMPORTAR esos libros y sobrescribir tu lista local? (Pulsa ACEPTAR)\n\n¿O quieres SOBRESCRIBIR el archivo de GitHub con tus libros locales actuales? (Pulsa CANCELAR)`;
-      if (confirm(confirmMsg)) {
-        books = parsedBooks;
-        gitFileSha = sha;
-        gitConfig = { token, repo, branch, path };
-        localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
-        // Ya no guardamos en localstorage
-        renderAll();
-        updateGitStatusUI("green");
-        closeGitModal();
-        showToast("¡Conectado! Libros importados de GitHub");
-      } else {
-        gitConfig = { token, repo, branch, path };
-        localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
-        await saveBooks();
-        closeGitModal();
-        showToast("¡Conectado! Archivo sobrescrito en GitHub");
-      }
+      // Importar directamente los libros de GitHub ya que es la única fuente de verdad
+      books = parsedBooks;
+      gitFileSha = sha;
+      gitConfig = { token, repo, branch, path };
+      localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
+      renderAll();
+      updateGitStatusUI("green");
+      closeGitModal();
+      showToast(`¡Conectado! Se han cargado ${books.length} libros de GitHub`);
     } else if (res.status === 404) {
       gitConfig = { token, repo, branch, path };
       localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
