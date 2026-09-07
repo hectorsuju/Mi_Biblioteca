@@ -7,10 +7,11 @@
     "publisher": "Capitán Swing",
     "genre": "",
     "cover": "https://covers.openlibrary.org/b/id/12992491-M.jpg",
-    "status": "leido",
-    "rating": 5,
-    "comments": "Muy bueo! Totalmente recomedable!",
-    "url": "https://openlibrary.org/works/OL15842880W"
+    "status": "quiero_leer",
+    "rating": 0,
+    "comments": "",
+    "url": "https://openlibrary.org/works/OL15842880W",
+    "readDate": ""
   },
   {
     "id": "b_mtrd9zvt_9gaim",
