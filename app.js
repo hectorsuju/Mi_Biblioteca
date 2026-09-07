@@ -58,10 +58,11 @@ async function loadBooks() {
     updateGitStatusUI("yellow");
     try {
       const url = `https://api.github.com/repos/${gitConfig.repo}/contents/${gitConfig.path || "books.json"}?ref=${gitConfig.branch || "main"}`;
-      const res = await fetch(url, {
+      const fetchUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+      const res = await fetch(fetchUrl, {
         headers: {
           "Authorization": `token ${gitConfig.token}`,
-          "Cache-Control": "no-cache"
+          "Cache-Control": "no-cache, no-store, must-revalidate"
         }
       });
       if (res.ok) {
@@ -112,9 +113,13 @@ async function saveBooks() {
     try {
       const url = `https://api.github.com/repos/${gitConfig.repo}/contents/${gitConfig.path || "books.json"}?ref=${gitConfig.branch || "main"}`;
       
-      // 1. Obtener el SHA actual para evitar colisiones
-      const getRes = await fetch(url, {
-        headers: { "Authorization": `token ${gitConfig.token}` }
+      // 1. Obtener el SHA actual para evitar colisiones (con cache busting)
+      const getUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+      const getRes = await fetch(getUrl, {
+        headers: { 
+          "Authorization": `token ${gitConfig.token}`,
+          "Cache-Control": "no-cache, no-store, must-revalidate"
+        }
       });
       
       let sha = null;
@@ -468,8 +473,12 @@ async function testAndConnectGit() {
 
   try {
     const url = `https://api.github.com/repos/${repo}/contents/${path}?ref=${branch}`;
-    const res = await fetch(url, {
-      headers: { "Authorization": `token ${token}` }
+    const getUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+    const res = await fetch(getUrl, {
+      headers: { 
+        "Authorization": `token ${token}`,
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
     });
 
     if (res.ok) {
