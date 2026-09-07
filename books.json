@@ -24,5 +24,18 @@
     "rating": 0,
     "readDate": "",
     "comments": ""
+  },
+  {
+    "id": "b_mtrjerbg_p1yer",
+    "title": "Maintenance",
+    "year": "2024",
+    "author": "Stewart Brand",
+    "publisher": "Stripe Press",
+    "genre": "Transportation",
+    "cover": "https://covers.openlibrary.org/b/id/15227296-M.jpg",
+    "status": "quiero_leer",
+    "rating": 0,
+    "readDate": "",
+    "comments": ""
   }
 ]
