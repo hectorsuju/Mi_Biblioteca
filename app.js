@@ -70,36 +70,31 @@ async function loadBooks() {
         const content = fromBase64Utf8(data.content);
         books = JSON.parse(content);
         
-        // Guardar respaldo local
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+        // ELIMINADO EL LOCALSTORAGE (para no generar confusión)
+        localStorage.removeItem(STORAGE_KEY);
         updateGitStatusUI("green");
         return;
       } else {
         throw new Error("Respuesta no OK de GitHub");
       }
     } catch (e) {
-      console.error("Error al cargar desde GitHub, usando respaldo local:", e);
-      showToast("Error de sincronización con GitHub. Usando datos locales.");
+      console.error("Error al cargar desde GitHub:", e);
+      showToast("Error de sincronización con GitHub.");
       updateGitStatusUI("yellow");
-      // fallthrough a cargar del localStorage local
     }
   } else {
     updateGitStatusUI("red");
   }
 
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      books = JSON.parse(saved);
-      return;
-    } catch (e) { /* fall through */ }
-  }
+  // Si no hay configuración de GitHub, eliminamos cualquier localStorage antiguo
+  localStorage.removeItem(STORAGE_KEY);
+
   // primera vez: intenta cargar books.json de al lado del index.html
   try {
     const res = await fetch(DATA_FILE, { cache: "no-store" });
     if (res.ok) {
       books = await res.json();
-      saveBooks();
+      // Ya no guardamos en localstorage
     } else {
       books = [];
     }
@@ -109,8 +104,8 @@ async function loadBooks() {
 }
 
 async function saveBooks() {
-  // Guardar respaldo local
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+  // ELIMINADO EL LOCALSTORAGE (para no generar confusión)
+  localStorage.removeItem(STORAGE_KEY);
 
   if (gitConfig && gitConfig.token && gitConfig.repo) {
     updateGitStatusUI("yellow");
@@ -129,8 +124,9 @@ async function saveBooks() {
       }
 
       // 2. Realizar el PUT
+      const timestampForBranch = new Date().toISOString().replace(/[:.]/g, '-');
       const payload = {
-        message: "Actualizar biblioteca desde Mi Biblioteca",
+        message: `Actualizar biblioteca desde Mi Biblioteca - ${timestampForBranch}`,
         content: toBase64Utf8(JSON.stringify(books, null, 2))
       };
       if (sha) {
@@ -150,6 +146,26 @@ async function saveBooks() {
         const putData = await putRes.json();
         gitFileSha = putData.content.sha;
         updateGitStatusUI("green");
+
+        // 3. Crear una nueva rama en GitHub con esta subida (Guardar versiones/ramas)
+        const newCommitSha = putData.commit.sha;
+        const branchName = `backup-${timestampForBranch}`;
+        const refUrl = `https://api.github.com/repos/${gitConfig.repo}/git/refs`;
+        try {
+          await fetch(refUrl, {
+            method: "POST",
+            headers: {
+              "Authorization": `token ${gitConfig.token}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              ref: `refs/heads/${branchName}`,
+              sha: newCommitSha
+            })
+          });
+        } catch (branchErr) {
+          console.error("No se pudo crear la rama de respaldo", branchErr);
+        }
       } else {
         throw new Error("No se pudo guardar en GitHub");
       }
@@ -476,7 +492,7 @@ async function testAndConnectGit() {
         gitFileSha = sha;
         gitConfig = { token, repo, branch, path };
         localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+        // Ya no guardamos en localstorage
         renderAll();
         updateGitStatusUI("green");
         closeGitModal();
