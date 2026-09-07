@@ -24,5 +24,18 @@
     "rating": 0,
     "readDate": "",
     "comments": ""
+  },
+  {
+    "id": "b_mtrj6non_vhds9",
+    "title": "The sciences of the artificial",
+    "year": "1969",
+    "author": "Herbert Alexander Simon",
+    "publisher": "MIT Press",
+    "genre": "Science",
+    "cover": "https://covers.openlibrary.org/b/id/152472-M.jpg",
+    "status": "quiero_leer",
+    "rating": 0,
+    "readDate": "",
+    "comments": ""
   }
 ]
