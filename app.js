@@ -486,15 +486,26 @@ async function testAndConnectGit() {
       connectBtn.textContent = originalText;
       connectBtn.disabled = false;
 
-      // Importar directamente los libros de GitHub ya que es la única fuente de verdad
-      books = parsedBooks;
+      // Para no perder libros añadidos antes de conectar, mezclamos los locales nuevos
+      const githubBooksIds = new Set(parsedBooks.map(b => b.id));
+      const localNewBooks = books.filter(b => !githubBooksIds.has(b.id));
+      
+      books = [...parsedBooks, ...localNewBooks];
       gitFileSha = sha;
       gitConfig = { token, repo, branch, path };
       localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
+      
       renderAll();
       updateGitStatusUI("green");
       closeGitModal();
-      showToast(`¡Conectado! Se han cargado ${books.length} libros de GitHub`);
+      
+      if (localNewBooks.length > 0) {
+        showToast(`¡Conectado! Se han cargado ${parsedBooks.length} libros y conservado ${localNewBooks.length} locales`);
+        // Como hemos fusionado datos locales nuevos, forzamos un guardado para subirlo a GitHub
+        saveBooks();
+      } else {
+        showToast(`¡Conectado! Se han cargado ${books.length} libros de GitHub`);
+      }
     } else if (res.status === 404) {
       gitConfig = { token, repo, branch, path };
       localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
