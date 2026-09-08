@@ -57,12 +57,13 @@ async function loadBooks() {
   if (gitConfig && gitConfig.token && gitConfig.repo) {
     updateGitStatusUI("yellow");
     try {
-      const url = `https://api.github.com/repos/${gitConfig.repo}/contents/${gitConfig.path || "books.json"}?ref=${gitConfig.branch || "main"}`;
+      const cleanRepo = gitConfig.repo.replace(/\/+$/, '');
+      const cleanPath = (gitConfig.path || "books.json").replace(/^\/+/, '');
+      const url = `https://api.github.com/repos/${cleanRepo}/contents/${cleanPath}?ref=${gitConfig.branch || "main"}`;
       const fetchUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
       const res = await fetch(fetchUrl, {
         headers: {
-          "Authorization": `token ${gitConfig.token}`,
-          "Cache-Control": "no-cache, no-store, must-revalidate"
+          "Authorization": `token ${gitConfig.token}`
         }
       });
       if (res.ok) {
@@ -111,14 +112,15 @@ async function saveBooks() {
   if (gitConfig && gitConfig.token && gitConfig.repo) {
     updateGitStatusUI("yellow");
     try {
-      const url = `https://api.github.com/repos/${gitConfig.repo}/contents/${gitConfig.path || "books.json"}?ref=${gitConfig.branch || "main"}`;
+      const cleanRepo = gitConfig.repo.replace(/\/+$/, '');
+      const cleanPath = (gitConfig.path || "books.json").replace(/^\/+/, '');
+      const url = `https://api.github.com/repos/${cleanRepo}/contents/${cleanPath}?ref=${gitConfig.branch || "main"}`;
       
       // 1. Obtener el SHA actual para evitar colisiones (con cache busting)
       const getUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
       const getRes = await fetch(getUrl, {
         headers: { 
-          "Authorization": `token ${gitConfig.token}`,
-          "Cache-Control": "no-cache, no-store, must-revalidate"
+          "Authorization": `token ${gitConfig.token}`
         }
       });
       
@@ -457,9 +459,15 @@ function disconnectGit() {
 
 async function testAndConnectGit() {
   const token = $("#gitToken").value.trim();
-  const repo = $("#gitRepo").value.trim();
-  const branch = $("#gitBranch").value.trim() || "main";
-  const path = $("#gitPath").value.trim() || "books.json";
+  let repo = $("#gitRepo").value.trim();
+  // Limpiar posibles barras extra que haya puesto el usuario al final del repo
+  repo = repo.replace(/\/+$/, '');
+  
+  let branch = $("#gitBranch").value.trim() || "main";
+  
+  let path = $("#gitPath").value.trim() || "books.json";
+  // Limpiar barra inicial si la puso
+  path = path.replace(/^\/+/, '');
 
   if (!token || !repo) {
     showToast("Introduce el Token y el Repositorio");
@@ -476,8 +484,7 @@ async function testAndConnectGit() {
     const getUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
     const res = await fetch(getUrl, {
       headers: { 
-        "Authorization": `token ${token}`,
-        "Cache-Control": "no-cache, no-store, must-revalidate"
+        "Authorization": `token ${token}`
       }
     });
 
@@ -543,16 +550,16 @@ async function testAndConnectGit() {
         closeGitModal();
         showToast("¡Conectado! Archivo creado en GitHub");
       } else {
-        throw new Error("No se pudo crear el archivo en GitHub");
+        throw new Error(`Fallo al crear archivo: Error ${createRes.status}`);
       }
     } else {
-      throw new Error("Credenciales inválidas o sin permisos");
+      throw new Error(`Credenciales/Permisos: Error ${res.status}`);
     }
   } catch (err) {
-    console.error(err);
+    console.error("Error en testAndConnectGit:", err);
     connectBtn.textContent = originalText;
     connectBtn.disabled = false;
-    showToast("Error de conexión. Verifica tu Token y Repositorio.");
+    showToast(`Error: ${err.message}. Revisa la consola (F12)`);
   }
 }
 
