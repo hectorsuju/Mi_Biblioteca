@@ -64,5 +64,18 @@
     "rating": 0,
     "readDate": "",
     "comments": ""
+  },
+  {
+    "id": "b_mtsm5dvl_ldv1a",
+    "title": "Análisis y diseño de sistemas",
+    "year": "2011",
+    "author": "Kenneth E. Kendall, Julie E. Kendall",
+    "publisher": "Pearson",
+    "genre": "",
+    "cover": "https://covers.openlibrary.org/b/id/7293300-M.jpg",
+    "status": "quiero_leer",
+    "rating": 0,
+    "readDate": "",
+    "comments": ""
   }
 ]
