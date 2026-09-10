@@ -77,5 +77,18 @@
     "rating": 0,
     "readDate": "",
     "comments": ""
+  },
+  {
+    "id": "b_mtvbc2er_w9ol2",
+    "title": "El Principito",
+    "year": "2018",
+    "author": "Antoine de Saint-Exupéry",
+    "publisher": "Editorial Verbum, S.L.",
+    "genre": "",
+    "cover": "https://covers.openlibrary.org/b/id/13499066-M.jpg",
+    "status": "leido",
+    "rating": 5,
+    "readDate": "2025-08",
+    "comments": "Me gustó, sin mas"
   }
 ]
