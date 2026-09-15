@@ -54,6 +54,13 @@ async function loadBooks() {
     }
   }
 
+  // Rescatar libros locales por si se usó la app sin conexión o sin GitHub
+  const saved = localStorage.getItem(STORAGE_KEY);
+  let localBooks = [];
+  if (saved) {
+    try { localBooks = JSON.parse(saved); } catch (e) {}
+  }
+
   if (gitConfig && gitConfig.token && gitConfig.repo) {
     updateGitStatusUI("yellow");
     try {
@@ -70,10 +77,22 @@ async function loadBooks() {
         const data = await res.json();
         gitFileSha = data.sha;
         const content = fromBase64Utf8(data.content);
-        books = JSON.parse(content);
+        const githubBooks = JSON.parse(content);
         
-        // ELIMINADO EL LOCALSTORAGE (para no generar confusión)
-        localStorage.removeItem(STORAGE_KEY);
+        // Fusión: añadir libros locales creados offline que no existan en GitHub
+        const githubIds = new Set(githubBooks.map(b => b.id));
+        const newLocals = localBooks.filter(b => !githubIds.has(b.id));
+        
+        if (newLocals.length > 0) {
+          books = [...githubBooks, ...newLocals];
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+          updateGitStatusUI("green");
+          saveBooks(); // Forzamos subida de los nuevos a GitHub
+          return;
+        }
+
+        books = githubBooks;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
         updateGitStatusUI("green");
         return;
       } else {
@@ -81,22 +100,27 @@ async function loadBooks() {
       }
     } catch (e) {
       console.error("Error al cargar desde GitHub:", e);
-      showToast("Error de sincronización con GitHub.");
+      showToast("Sin conexión. Usando datos locales.");
       updateGitStatusUI("yellow");
+      if (localBooks.length > 0) books = localBooks;
+      return;
     }
   } else {
     updateGitStatusUI("red");
   }
 
-  // Si no hay configuración de GitHub, eliminamos cualquier localStorage antiguo
-  localStorage.removeItem(STORAGE_KEY);
+  // Si no hay configuración de GitHub, usamos lo que haya en local
+  if (localBooks.length > 0) {
+    books = localBooks;
+    return;
+  }
 
-  // primera vez: intenta cargar books.json de al lado del index.html
+  // primera vez total: intenta cargar books.json inicial
   try {
     const res = await fetch(DATA_FILE, { cache: "no-store" });
     if (res.ok) {
       books = await res.json();
-      // Ya no guardamos en localstorage
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
     } else {
       books = [];
     }
@@ -106,8 +130,8 @@ async function loadBooks() {
 }
 
 async function saveBooks() {
-  // ELIMINADO EL LOCALSTORAGE (para no generar confusión)
-  localStorage.removeItem(STORAGE_KEY);
+  // Guardamos SIEMPRE en localstorage para funcionar correctamente sin conexión
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
 
   if (gitConfig && gitConfig.token && gitConfig.repo) {
     updateGitStatusUI("yellow");
@@ -510,6 +534,7 @@ async function testAndConnectGit() {
       gitFileSha = sha;
       gitConfig = { token, repo, branch, path };
       localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
       
       renderAll();
       updateGitStatusUI("green");
