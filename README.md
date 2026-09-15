@@ -52,16 +52,6 @@ Para activar la sincronización automática:
 
 ---
 
-## Cómo alojarla en Google Drive
-
-Google Drive no ejecuta archivos HTML directamente (los abre como descarga, no como página web). Tienes dos opciones sencillas:
-
-**Opción A — Uso local (la más simple):**
-Guarda la carpeta completa (`index.html`, `styles.css`, `app.js`, `books.json`) sincronizada en tu Google Drive de escritorio, y haz doble clic en `index.html` para abrirla en el navegador cuando quieras usarla. Funciona sin conexión salvo para la búsqueda de libros y las recomendaciones (que sí necesitan internet).
-
-**Opción B — Alojarla como web real (recomendado si quieres acceder desde el móvil):**
-Sube estos mismos archivos a un hosting gratuito de páginas estáticas, por ejemplo GitHub Pages o Netlify, en un par de minutos y sin necesidad de saber programar. Así tendrás una URL fija a la que acceder desde cualquier dispositivo. Puedo ayudarte con estos pasos si quieres.
-
 ## La búsqueda de libros
 
 Al pulsar el botón **+** y escribir un título, la app consulta la base de datos abierta de Open Library para autocompletar portada, autor, año y editorial. Es un servicio público gratuito, no una librería de código: no hace falta instalar nada.
