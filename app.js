@@ -217,6 +217,50 @@ function renderAll() {
   renderGrid("leido_leyendo", "gridReading", "emptyReading");
   renderGrid("quiero_leer", "gridWishlist", "emptyWishlist");
   renderShelf();
+  renderStats();
+}
+
+function renderStats() {
+  const readBooks = books.filter(b => b.status === "leido");
+  
+  // 1. Total libros leídos
+  $("#statTotalBooks").textContent = readBooks.length;
+  
+  // 2. Leídos este año
+  const currentYear = new Date().getFullYear().toString();
+  const yearBooks = readBooks.filter(b => b.readDate && b.readDate.startsWith(currentYear));
+  $("#statYearBooks").textContent = yearBooks.length;
+  
+  // Función auxiliar para sacar el más frecuente
+  const getMostFrequent = (arr) => {
+    if (arr.length === 0) return "—";
+    const counts = {};
+    let maxCount = 0;
+    let maxItem = "—";
+    for (const item of arr) {
+      if (!item) continue;
+      counts[item] = (counts[item] || 0) + 1;
+      if (counts[item] > maxCount) {
+        maxCount = counts[item];
+        maxItem = item;
+      }
+    }
+    return maxItem;
+  };
+
+  // 3. Autor más leído
+  const authors = readBooks.map(b => b.author).filter(Boolean);
+  let topAuthor = getMostFrequent(authors);
+  if (topAuthor.length > 20) topAuthor = topAuthor.substring(0, 18) + "...";
+  $("#statTopAuthor").textContent = topAuthor;
+  $("#statTopAuthor").title = topAuthor; 
+
+  // 4. Género favorito
+  const genres = readBooks.map(b => b.genre).filter(Boolean);
+  let topGenre = getMostFrequent(genres);
+  if (topGenre.length > 20) topGenre = topGenre.substring(0, 18) + "...";
+  $("#statTopGenre").textContent = topGenre;
+  $("#statTopGenre").title = topGenre;
 }
 
 function renderGrid(group, gridId, emptyId) {
