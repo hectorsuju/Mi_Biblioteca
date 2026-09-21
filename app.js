@@ -744,23 +744,86 @@ async function runSearch(q) {
   list.hidden = false;
   list.innerHTML = `<div class="ac-empty">Buscando...</div>`;
   try {
-    const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=6&fields=title,author_name,first_publish_year,publisher,subject,cover_i,key`);
-    const data = await res.json();
-    const docs = data.docs || [];
-    if (docs.length === 0) {
+    let combinedResults = [];
+    
+    // 1. Buscar en Google Books (suele tener mejores portadas y datos en español)
+    try {
+      const gbRes = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`);
+      if (gbRes.ok) {
+        const gbData = await gbRes.json();
+        if (gbData.items) {
+          gbData.items.forEach(item => {
+            const vol = item.volumeInfo;
+            if (!vol) return;
+            // Asegurarnos de usar https para las imágenes de Google
+            let coverUrl = vol.imageLinks?.thumbnail || vol.imageLinks?.smallThumbnail || "";
+            if (coverUrl) coverUrl = coverUrl.replace(/^http:/, "https:");
+            
+            combinedResults.push({
+              source: "google",
+              title: vol.title,
+              author: (vol.authors || [])[0] || "",
+              year: (vol.publishedDate || "").substring(0, 4),
+              publisher: vol.publisher || "",
+              genre: (vol.categories || [])[0] || "",
+              coverThumb: coverUrl, 
+              coverFull: coverUrl,
+              id: item.id
+            });
+          });
+        }
+      }
+    } catch (e) { console.error("Error Google Books:", e); }
+
+    // 2. Buscar en OpenLibrary como respaldo o para rellenar
+    if (combinedResults.length < 6) {
+      try {
+        const olRes = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=5&fields=title,author_name,first_publish_year,publisher,subject,cover_i,key`);
+        if (olRes.ok) {
+          const olData = await olRes.json();
+          (olData.docs || []).forEach(d => {
+            combinedResults.push({
+              source: "openlibrary",
+              title: d.title,
+              author: (d.author_name || [])[0] || "",
+              year: d.first_publish_year || "",
+              publisher: (d.publisher || [])[0] || "",
+              genre: (d.subject || [])[0] || "",
+              coverThumb: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-S.jpg` : "",
+              coverFull: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : "",
+              id: d.key
+            });
+          });
+        }
+      } catch (e) { console.error("Error OpenLibrary:", e); }
+    }
+
+    // Filtrar duplicados por título aproximado
+    const uniqueResults = [];
+    const seenTitles = new Set();
+    for (const res of combinedResults) {
+      const t = (res.title || "").toLowerCase().trim();
+      if (!seenTitles.has(t) && t !== "") {
+        seenTitles.add(t);
+        uniqueResults.push(res);
+      }
+      if (uniqueResults.length >= 8) break; // Máximo 8 resultados
+    }
+
+    if (uniqueResults.length === 0) {
       list.innerHTML = `<div class="ac-empty">Sin resultados. Puedes rellenar los campos a mano y añadir una foto.</div>`;
       return;
     }
+    
     list.innerHTML = "";
-    docs.forEach(d => {
+    uniqueResults.forEach(d => {
       const item = document.createElement("div");
       item.className = "ac-item";
-      const coverUrl = d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-S.jpg` : "";
       item.innerHTML = `
-        ${coverUrl ? `<img src="${coverUrl}" alt="">` : `<div style="width:32px;height:46px;background:var(--paper-deep);flex-shrink:0;"></div>`}
+        ${d.coverThumb ? `<img src="${d.coverThumb}" alt="">` : `<div style="width:32px;height:46px;background:var(--paper-deep);flex-shrink:0;"></div>`}
         <div class="ac-text">
           <div>${escapeHtml(d.title)}</div>
-          <div class="ac-author">${escapeHtml((d.author_name || [])[0] || "Autor desconocido")} · ${d.first_publish_year || "—"}</div>
+          <div class="ac-author">${escapeHtml(d.author)} · ${d.year || "—"}</div>
         </div>`;
       item.addEventListener("click", () => selectSearchResult(d));
       list.appendChild(item);
@@ -772,12 +835,14 @@ async function runSearch(q) {
 
 function selectSearchResult(d) {
   $("#titleInput").value = d.title || "";
-  $("#authorInput").value = (d.author_name || [])[0] || "";
-  $("#yearInput").value = d.first_publish_year || "";
-  $("#publisherInput").value = (d.publisher || [])[0] || "";
-  $("#genreInput").value = (d.subject || [])[0] || "";
-  if (d.cover_i) {
-    setCoverPreview(`https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`);
+  $("#authorInput").value = d.author || "";
+  $("#yearInput").value = d.year || "";
+  $("#publisherInput").value = d.publisher || "";
+  $("#genreInput").value = d.genre || "";
+  if (d.coverFull) {
+    setCoverPreview(d.coverFull);
+  } else {
+    setCoverPreview("");
   }
   $("#autocompleteList").hidden = true;
   $("#searchInput").value = "";
