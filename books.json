@@ -90,5 +90,18 @@
     "rating": 0,
     "readDate": "",
     "comments": ""
+  },
+  {
+    "id": "b_mubbpp2h_vs8pk",
+    "title": "Introducción al pensamiento sistémico",
+    "year": "1999",
+    "author": "Ian McDermott",
+    "publisher": "Urano",
+    "genre": "",
+    "cover": "https://covers.openlibrary.org/b/id/13522965-M.jpg",
+    "status": "quiero_leer",
+    "rating": 0,
+    "readDate": "",
+    "comments": ""
   }
 ]
