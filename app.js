@@ -216,6 +216,7 @@ function uid() {
 function renderAll() {
   renderGrid("leido_leyendo", "gridReading", "emptyReading");
   renderGrid("quiero_leer", "gridWishlist", "emptyWishlist");
+  renderGrid("abandonado", "gridAbandoned", "emptyAbandoned");
   renderShelf();
   renderStats();
 }
@@ -272,8 +273,10 @@ function renderGrid(group, gridId, emptyId) {
     if (currentFilter !== "all") {
       list = list.filter(b => b.status === currentFilter);
     }
-  } else {
+  } else if (group === "quiero_leer") {
     list = books.filter(b => b.status === "quiero_leer");
+  } else if (group === "abandonado") {
+    list = books.filter(b => b.status === "abandonado");
   }
 
   grid.innerHTML = "";
@@ -317,7 +320,11 @@ function buildCard(book) {
   }
   const flag = document.createElement("span");
   flag.className = "status-flag " + book.status;
-  flag.textContent = book.status === "leido" ? "Leído" : book.status === "leyendo" ? "Leyendo" : "Pendiente";
+  if (book.status === "leido") flag.textContent = "Leído";
+  else if (book.status === "leyendo") flag.textContent = "Leyendo";
+  else if (book.status === "abandonado") flag.textContent = "Abandonado";
+  else flag.textContent = "Pendiente";
+  
   cover.appendChild(flag);
   card.appendChild(cover);
 
@@ -350,6 +357,13 @@ function buildCard(book) {
     infoMain.appendChild(readDate);
   }
 
+  if (book.recommendation) {
+    const r = document.createElement("div");
+    r.className = "book-comments";
+    r.innerHTML = `<strong>Recomendado a:</strong> ${escapeHtml(book.recommendation)}`;
+    infoMain.appendChild(r);
+  }
+
   if (book.comments) {
     const c = document.createElement("div");
     c.className = "book-comments";
@@ -362,7 +376,7 @@ function buildCard(book) {
   const footer = document.createElement("div");
   footer.className = "book-footer";
 
-  if (book.status !== "quiero_leer") {
+  if (book.status === "leido" || book.status === "leyendo") {
     const label = document.createElement("label");
     label.className = "finished-toggle";
     const cb = document.createElement("input");
@@ -653,6 +667,7 @@ function openModal(bookId, seedData = null) {
     $("#readMonthInput").value = readMonth || "";
     $("#readYearInput").value = readYear || "";
     $("#commentsInput").value = book.comments || "";
+    $("#recommendationInput").value = book.recommendation || "";
     $("#coverUrlInput").value = "";
     setCoverPreview(book.cover || "");
     selectedStatus = book.status || "leido";
@@ -668,6 +683,7 @@ function openModal(bookId, seedData = null) {
     $("#readMonthInput").value = "";
     $("#readYearInput").value = "";
     $("#commentsInput").value = "";
+    $("#recommendationInput").value = "";
     $("#coverUrlInput").value = "";
     const coverUrl = seedData.cover || (seedData.cover_i ? `https://covers.openlibrary.org/b/id/${seedData.cover_i}-M.jpg` : "");
     setCoverPreview(coverUrl);
@@ -682,9 +698,12 @@ function openModal(bookId, seedData = null) {
     $("#readMonthInput").value = "";
     $("#readYearInput").value = "";
     $("#commentsInput").value = "";
+    $("#recommendationInput").value = "";
     $("#coverUrlInput").value = "";
     setCoverPreview("");
-    selectedStatus = currentTab === "wishlist" ? "quiero_leer" : "leido";
+    if (currentTab === "wishlist") selectedStatus = "quiero_leer";
+    else if (currentTab === "abandoned") selectedStatus = "abandonado";
+    else selectedStatus = "leido";
     selectedRating = 0;
   }
 
@@ -749,6 +768,7 @@ function saveFromModal() {
     rating: selectedStatus === "quiero_leer" ? 0 : selectedRating,
     readDate: selectedStatus === "quiero_leer" ? "" : readDate,
     comments: selectedStatus === "quiero_leer" ? "" : $("#commentsInput").value.trim(),
+    recommendation: selectedStatus === "quiero_leer" ? "" : $("#recommendationInput").value.trim(),
   };
 
   if (editingId) {
