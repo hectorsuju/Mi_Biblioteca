@@ -553,7 +553,7 @@ main{ max-width: 1100px; margin: 0 auto; padding: 0 24px; }
   border: 1px solid var(--paper-deep);
   border-radius: 4px;
   box-shadow: var(--shadow);
-  max-height: 240px;
+  max-height: 380px;
   overflow-y:auto;
   z-index: 5;
 }
@@ -563,12 +563,66 @@ main{ max-width: 1100px; margin: 0 auto; padding: 0 24px; }
   padding: 8px 10px;
   cursor:pointer;
   align-items:center;
+  border-bottom: 1px solid var(--paper-deep);
 }
+.ac-item:last-of-type{ border-bottom: none; }
 .ac-item:hover{ background: var(--paper); }
-.ac-item img{ width:32px; height:46px; object-fit:cover; background:var(--paper-deep); flex-shrink:0; }
-.ac-item .ac-text{ font-size: 0.82rem; line-height:1.25; }
-.ac-item .ac-author{ color: var(--ink-soft); font-size: 0.74rem; }
+.ac-item img{ width:32px; height:46px; object-fit:cover; background:var(--paper-deep); flex-shrink:0; border-radius:2px; }
+.ac-item .ac-text{ font-size: 0.82rem; line-height:1.25; min-width:0; }
+.ac-item .ac-author{ color: var(--ink-soft); font-size: 0.74rem; margin-top:2px; }
 .ac-empty{ padding: 10px; font-size: 0.8rem; color: var(--ink-soft); }
+
+/* Badges de fuente e ISBN */
+.ac-meta{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.ac-source-badge{
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 10px;
+  letter-spacing: 0.03em;
+  opacity: 0.9;
+}
+.ac-isbn{
+  font-size: 0.62rem;
+  color: var(--ink-soft);
+  background: var(--paper-deep);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-family: monospace;
+  letter-spacing: 0.04em;
+}
+
+/* Pie «Buscar en Casa del Libro» */
+.ac-cdl-footer{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-top: 1px solid var(--paper-deep);
+  background: var(--paper);
+  border-radius: 0 0 4px 4px;
+  transition: background 0.15s ease, color 0.15s ease;
+  position: sticky;
+  bottom: 0;
+}
+.ac-cdl-footer:hover{
+  background: #fdf3e0;
+  color: #b35e00;
+}
+.ac-cdl-footer strong{
+  color: #b35e00;
+}
 
 .cover-row{ display:flex; gap: 14px; margin-bottom: 16px; align-items:flex-start; }
 .cover-preview{
