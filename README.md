@@ -11,17 +11,14 @@ Web personal para llevar el registro de los libros que has leído, que estás le
 
 ## Cómo funciona el guardado y sincronización
 
-La aplicación gestiona tus libros interactuando directamente con tu repositorio de GitHub:
+GitHub es la **única fuente de verdad**. Los libros no se guardan nunca en el navegador (ni en localStorage ni en ningún otro sitio):
 
-1. **Sincronización directa con GitHub**: Al conectar la aplicación a GitHub, todos los libros se leen y escriben directamente en un archivo `.json` de tu repositorio. **No hay almacenamiento intermedio en el navegador (LocalStorage)** para los libros; esto evita confusiones de sincronización o pérdida de datos. ¡GitHub es tu única fuente de verdad!
-2. **Backups automáticos (Ramas de versiones)**: Para mayor seguridad, cada vez que realizas un cambio (añadir, editar, borrar un libro), la aplicación no solo actualiza tu archivo principal, sino que también **crea de forma automática una rama (branch) de respaldo** en tu repositorio con la fecha y hora del cambio (por ejemplo, `backup-2026-09-07T14-30-00`). Así, tienes un historial completo de versiones y puedes recuperar tu biblioteca desde GitHub si cometes algún error.
-3. **Modo local**: Si no tienes configurado GitHub, la aplicación simplemente intentará leer el archivo `books.json` en local.
+1. **Lectura y escritura directa en GitHub**: cada vez que abres la app con GitHub conectado, se lee el `books.json` real de tu repositorio. Cada vez que añades, editas o borras un libro, se escribe directamente ahí. No existe ninguna copia intermedia que pueda desincronizarse.
+2. **Protección anti-conflicto**: justo antes de guardar, la app vuelve a comprobar la versión actual del archivo en GitHub. Si cambió desde la última vez que lo leíste (por ejemplo, lo editaste desde otro dispositivo), GitHub rechaza el guardado en vez de sobrescribirlo, y la app te avisa y recarga la versión correcta. **Es imposible machacar el archivo por accidente.**
+3. **Backups automáticos (ramas de versiones)**: cada guardado exitoso crea además una rama de respaldo en tu repositorio con la fecha y hora (por ejemplo, `backup-2026-09-07T14-30-00`), para poder recuperar cualquier versión anterior desde el propio GitHub.
+4. **Modo solo lectura**: si no tienes GitHub conectado, la app muestra el `books.json` de ejemplo incluido en el sitio, pero no te deja guardar cambios — verás un aviso pidiéndote que conectes tu repositorio (botón ☁️) para poder editar.
 
-La app incluye las siguientes herramientas en la barra inferior izquierda:
-
-- **Exportar**: Descarga tu biblioteca actual como `books.json` (copia de seguridad manual).
-- **Importar**: Carga un archivo `books.json` externo para sustituir los datos (y subirlos directamente a GitHub).
-- **GitHub**: Abre el panel de configuración de la sincronización en la nube.
+Lo único que se guarda en el navegador es la configuración de conexión (token, repositorio, rama y ruta), para no tener que volver a pegar el token cada vez que abres la página. Esto no incluye ningún libro.
 
 ---
 
@@ -41,14 +38,14 @@ Para activar la sincronización automática:
 4. (Opcional) Define la rama principal (por defecto `main`) y la ruta del archivo (por defecto `books.json`).
 5. Pulsa **Conectar y Guardar**.
 
-### 3. Resolución de conflictos inicial
-- **Si el archivo ya existe en GitHub**: La aplicación te preguntará si deseas **Importar** los libros desde GitHub a tu vista actual o **Sobrescribir** el archivo de GitHub con la biblioteca que tengas abierta en ese momento.
-- **Si el archivo no existe**: La aplicación creará un nuevo archivo `books.json` en tu repositorio.
+### 3. Qué pasa con el archivo al conectar
+- **Si el archivo ya existe en GitHub**: se carga directamente, sin preguntar ni mezclar con nada. GitHub manda.
+- **Si el archivo no existe todavía**: la aplicación lo crea con los libros que tengas en pantalla en ese momento (solo ocurre la primera vez, cuando no hay nada en GitHub con lo que pueda haber conflicto).
 
 ### 4. Indicador de estado visual (Punto de color)
 - **Verde**: Conectado y sincronizado con éxito.
-- **Amarillo**: Cargando, error temporal de conexión o credenciales incorrectas.
-- **Rojo**: Sincronización desactivada o desconfigurada.
+- **Amarillo**: Cargando, o error temporal de conexión/guardado.
+- **Rojo**: Sin GitHub conectado — modo solo lectura.
 
 ---
 
@@ -56,8 +53,8 @@ Para activar la sincronización automática:
 
 Google Drive no ejecuta archivos HTML directamente (los abre como descarga, no como página web). Tienes dos opciones sencillas:
 
-**Opción A — Uso local (la más simple):**
-Guarda la carpeta completa (`index.html`, `styles.css`, `app.js`, `books.json`) sincronizada en tu Google Drive de escritorio, y haz doble clic en `index.html` para abrirla en el navegador cuando quieras usarla. Funciona sin conexión salvo para la búsqueda de libros y las recomendaciones (que sí necesitan internet).
+**Opción A — Uso local:**
+Puedes guardar la carpeta completa (`index.html`, `styles.css`, `app.js`, `books.json`) en tu Google Drive de escritorio y abrir `index.html` con doble clic. Sin embargo, como GitHub es la única fuente de verdad, necesitas conectar tu repositorio (botón ☁️) para poder guardar cambios; sin conexión a GitHub la app solo te dejará consultar el `books.json` de ejemplo, en modo solo lectura. Recomendamos la Opción B.
 
 **Opción B — Alojarla como web real (recomendado si quieres acceder desde el móvil):**
 Sube estos mismos archivos a un hosting gratuito de páginas estáticas, por ejemplo GitHub Pages o Netlify, en un par de minutos y sin necesidad de saber programar. Así tendrás una URL fija a la que acceder desde cualquier dispositivo. Puedo ayudarte con estos pasos si quieres.

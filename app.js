@@ -1,14 +1,36 @@
 /* =========================================================
    MI BIBLIOTECA — lógica de la aplicación
-   Base de datos: array de libros guardado en localStorage,
-   exportable/importable como archivo .json (books.json)
+   =========================================================
+   ARQUITECTURA DE DATOS — GITHUB ES LA ÚNICA FUENTE DE VERDAD
+   ---------------------------------------------------------
+   · Los LIBROS (el array `books`) NO se guardan nunca en
+     localStorage. Cada vez que se abre la app, si hay GitHub
+     conectado, se leen en directo desde el books.json real
+     del repositorio. No existe ninguna copia "en caché" que
+     pueda quedarse desactualizada o pisar lo que hay en GitHub.
+   · Cada guardado (añadir/editar/borrar un libro) vuelve a
+     pedir el `sha` actual del archivo justo antes de escribir.
+     Si el archivo cambió mientras tanto (por ejemplo, lo editaste
+     desde otro dispositivo), GitHub RECHAZA la escritura con un
+     conflicto 409 en vez de machacarlo, y la app te avisa y
+     recarga la versión buena. Así es imposible sobrescribir sin
+     darte cuenta.
+   · Lo ÚNICO que se guarda en localStorage es la configuración
+     de conexión (token / repositorio / rama / ruta). Esto NO es
+     la base de datos de libros, son solo las credenciales, para
+     no tener que volver a pegar el token cada vez que abres la
+     página.
+   · Si no hay GitHub conectado, la app entra en modo SOLO LECTURA:
+     se muestra el books.json de ejemplo del propio sitio, pero no
+     se puede guardar nada hasta conectar un repositorio.
    ========================================================= */
 
-const STORAGE_KEY = "mi_biblioteca_books_v1";
-const GIT_CONFIG_KEY = "mi_biblioteca_git_config_v1";
-const DATA_FILE = "books.json"; // se intenta cargar al arrancar si localStorage está vacío
+/* ---------------- CONFIGURACIÓN Y ESTADO GLOBAL ---------------- */
+const GIT_CONFIG_KEY = "mi_biblioteca_git_config_v1"; // solo credenciales, nunca libros
+const DATA_FILE = "books.json"; // biblioteca de ejemplo, usada solo en modo solo-lectura
 
-let books = [];
+let books = [];                 // los libros en memoria durante esta sesión
+let isReadOnly = true;          // true mientras no haya GitHub conectado
 let currentTab = "reading";
 let editingId = null;
 let selectedStatus = "quiero_leer";
@@ -16,20 +38,31 @@ let selectedRating = 0;
 let searchDebounce = null;
 let currentFilter = "all";
 let currentViewMode = "grid";
-let gitConfig = null;
-let gitFileSha = null;
+let gitConfig = null;           // { token, repo, branch, path }
+let gitFileSha = null;          // sha del último books.json leído de GitHub
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-/* ---------------- INIT ---------------- */
+/* ---------------- INICIO (INIT) ---------------- */
 document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
+  loadGitConfig();
   await loadBooks();
   populateReadYearOptions();
   renderAll();
   bindEvents();
+}
+
+function loadGitConfig() {
+  const saved = localStorage.getItem(GIT_CONFIG_KEY);
+  if (!saved) { gitConfig = null; return; }
+  try {
+    gitConfig = JSON.parse(saved);
+  } catch (e) {
+    gitConfig = null;
+  }
 }
 
 function populateReadYearOptions() {
@@ -43,168 +76,140 @@ function populateReadYearOptions() {
   }
 }
 
+/* ---------------- CARGA DE LIBROS (GITHUB / SOLO LECTURA) ---------------- */
+
+// Construye la URL de la API de contenidos de GitHub para el books.json configurado.
+// `bust` añade un parámetro para evitar que el navegador sirva una respuesta cacheada.
+function githubContentsUrl(bust = true) {
+  const cleanRepo = gitConfig.repo.replace(/\/+$/, "");
+  const cleanPath = (gitConfig.path || "books.json").replace(/^\/+/, "");
+  const branch = gitConfig.branch || "main";
+  let url = `https://api.github.com/repos/${cleanRepo}/contents/${cleanPath}?ref=${branch}`;
+  if (bust) url += `&t=${Date.now()}`;
+  return url;
+}
+
 async function loadBooks() {
-  // Cargar configuración de GitHub
-  const savedGit = localStorage.getItem(GIT_CONFIG_KEY);
-  if (savedGit) {
-    try {
-      gitConfig = JSON.parse(savedGit);
-    } catch (e) {
-      gitConfig = null;
-    }
-  }
-
-  // Rescatar libros locales por si se usó la app sin conexión o sin GitHub
-  const saved = localStorage.getItem(STORAGE_KEY);
-  let localBooks = [];
-  if (saved) {
-    try { localBooks = JSON.parse(saved); } catch (e) {}
-  }
-
   if (gitConfig && gitConfig.token && gitConfig.repo) {
-    updateGitStatusUI("yellow");
-    try {
-      const cleanRepo = gitConfig.repo.replace(/\/+$/, '');
-      const cleanPath = (gitConfig.path || "books.json").replace(/^\/+/, '');
-      const url = `https://api.github.com/repos/${cleanRepo}/contents/${cleanPath}?ref=${gitConfig.branch || "main"}`;
-      const fetchUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
-      const res = await fetch(fetchUrl, {
-        headers: {
-          "Authorization": `token ${gitConfig.token}`
-        }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        gitFileSha = data.sha;
-        const content = fromBase64Utf8(data.content);
-        const githubBooks = JSON.parse(content);
-        
-        // Fusión: añadir libros locales creados offline que no existan en GitHub
-        const githubIds = new Set(githubBooks.map(b => b.id));
-        const newLocals = localBooks.filter(b => !githubIds.has(b.id));
-        
-        if (newLocals.length > 0) {
-          books = [...githubBooks, ...newLocals];
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
-          updateGitStatusUI("green");
-          saveBooks(); // Forzamos subida de los nuevos a GitHub
-          return;
-        }
-
-        books = githubBooks;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
-        updateGitStatusUI("green");
-        return;
-      } else {
-        throw new Error("Respuesta no OK de GitHub");
-      }
-    } catch (e) {
-      console.error("Error al cargar desde GitHub:", e);
-      showToast("Sin conexión. Usando datos locales.");
-      updateGitStatusUI("yellow");
-      if (localBooks.length > 0) books = localBooks;
-      return;
-    }
-  } else {
-    updateGitStatusUI("red");
-  }
-
-  // Si no hay configuración de GitHub, usamos lo que haya en local
-  if (localBooks.length > 0) {
-    books = localBooks;
+    await loadBooksFromGitHub();
     return;
   }
 
-  // primera vez total: intenta cargar books.json inicial
+  // Sin GitHub conectado: modo solo lectura con el books.json de ejemplo del sitio
+  isReadOnly = true;
+  updateGitStatusUI("red");
   try {
     const res = await fetch(DATA_FILE, { cache: "no-store" });
-    if (res.ok) {
-      books = await res.json();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
-    } else {
-      books = [];
-    }
+    books = res.ok ? await res.json() : [];
   } catch (e) {
     books = [];
   }
 }
 
-async function saveBooks() {
-  // Guardamos SIEMPRE en localstorage para funcionar correctamente sin conexión
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+// Lee el books.json directamente de GitHub. Esta es la ÚNICA fuente de libros
+// cuando hay una conexión configurada: no se combina con nada guardado localmente.
+async function loadBooksFromGitHub() {
+  updateGitStatusUI("yellow");
+  try {
+    const res = await fetch(githubContentsUrl(), {
+      headers: { "Authorization": `token ${gitConfig.token}` }
+    });
+    if (!res.ok) throw new Error(`GitHub respondió ${res.status}`);
 
-  if (gitConfig && gitConfig.token && gitConfig.repo) {
+    const data = await res.json();
+    gitFileSha = data.sha;
+    books = JSON.parse(fromBase64Utf8(data.content));
+    isReadOnly = false;
+    updateGitStatusUI("green");
+  } catch (e) {
+    console.error("Error al cargar desde GitHub:", e);
+    showToast("No se pudo leer el books.json de GitHub. Revisa la conexión.");
     updateGitStatusUI("yellow");
-    try {
-      const cleanRepo = gitConfig.repo.replace(/\/+$/, '');
-      const cleanPath = (gitConfig.path || "books.json").replace(/^\/+/, '');
-      const url = `https://api.github.com/repos/${cleanRepo}/contents/${cleanPath}?ref=${gitConfig.branch || "main"}`;
-      
-      // 1. Obtener el SHA actual para evitar colisiones (con cache busting)
-      const getUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
-      const getRes = await fetch(getUrl, {
-        headers: { 
-          "Authorization": `token ${gitConfig.token}`
-        }
-      });
-      
-      let sha = null;
-      if (getRes.ok) {
-        const getData = await getRes.json();
-        sha = getData.sha;
-      }
+    books = [];
+    isReadOnly = true;
+  }
+}
 
-      // 2. Realizar el PUT
-      const timestampForBranch = new Date().toISOString().replace(/[:.]/g, '-');
-      const payload = {
-        message: `Actualizar biblioteca desde Mi Biblioteca - ${timestampForBranch}`,
-        content: toBase64Utf8(JSON.stringify(books, null, 2))
-      };
-      if (sha) {
-        payload.sha = sha;
-      }
+/* ---------------- GUARDADO EN GITHUB (CON PROTECCIÓN ANTI-CONFLICTO) ---------------- */
+async function saveBooks() {
+  if (isReadOnly || !gitConfig || !gitConfig.token || !gitConfig.repo) {
+    showToast("Conecta tu repositorio de GitHub (☁️) para poder guardar cambios");
+    return false;
+  }
 
-      const putRes = await fetch(url, {
-        method: "PUT",
-        headers: {
-          "Authorization": `token ${gitConfig.token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
+  // Aviso preventivo: por encima de 1 MB, la API de GitHub deja de devolver
+  // el contenido del archivo al leerlo, y la app no podría volver a cargarlo.
+  const payloadSize = new Blob([JSON.stringify(books)]).size;
+  if (payloadSize > 900 * 1024) {
+    showToast("Aviso: la biblioteca pesa mucho (fotos muy grandes). Usa fotos más ligeras.");
+  }
 
-      if (putRes.ok) {
-        const putData = await putRes.json();
-        gitFileSha = putData.content.sha;
-        updateGitStatusUI("green");
+  updateGitStatusUI("yellow");
+  try {
+    // 1. Releer el sha justo antes de escribir: es la base de la protección
+    //    anti-conflicto. Si alguien cambió el archivo entretanto, el sha que
+    //    enviemos no coincidirá y GitHub rechazará la escritura (409) en vez
+    //    de dejarnos machacarla.
+    const getRes = await fetch(githubContentsUrl(), {
+      headers: { "Authorization": `token ${gitConfig.token}` }
+    });
+    const currentSha = getRes.ok ? (await getRes.json()).sha : gitFileSha;
 
-        // 3. Crear una nueva rama en GitHub con esta subida (Guardar versiones/ramas)
-        const newCommitSha = putData.commit.sha;
-        const branchName = `backup-${timestampForBranch}`;
-        const refUrl = `https://api.github.com/repos/${gitConfig.repo}/git/refs`;
-        try {
-          await fetch(refUrl, {
-            method: "POST",
-            headers: {
-              "Authorization": `token ${gitConfig.token}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              ref: `refs/heads/${branchName}`,
-              sha: newCommitSha
-            })
-          });
-        } catch (branchErr) {
-          console.error("No se pudo crear la rama de respaldo", branchErr);
-        }
-      } else {
-        throw new Error("No se pudo guardar en GitHub");
-      }
-    } catch (e) {
-      console.error("Error al guardar en GitHub:", e);
-      showToast("Error al guardar en GitHub");
-      updateGitStatusUI("yellow");
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const payload = {
+      message: `Actualizar biblioteca desde Mi Biblioteca - ${timestamp}`,
+      content: toBase64Utf8(JSON.stringify(books, null, 2)),
+    };
+    if (currentSha) payload.sha = currentSha;
+
+    const putRes = await fetch(githubContentsUrl(false), {
+      method: "PUT",
+      headers: {
+        "Authorization": `token ${gitConfig.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (putRes.status === 409) {
+      // Conflicto real: el archivo cambió en GitHub desde la última lectura.
+      // En vez de forzar la escritura, recargamos la versión buena y avisamos.
+      showToast("La biblioteca cambió en GitHub mientras editabas. Recargando la versión más reciente…");
+      await loadBooksFromGitHub();
+      renderAll();
+      return false;
     }
+
+    if (!putRes.ok) throw new Error(`GitHub respondió ${putRes.status} al guardar`);
+
+    const putData = await putRes.json();
+    gitFileSha = putData.content.sha;
+    updateGitStatusUI("green");
+    createBackupBranch(putData.commit.sha, timestamp);
+    return true;
+  } catch (e) {
+    console.error("Error al guardar en GitHub:", e);
+    showToast("Error al guardar en GitHub");
+    updateGitStatusUI("yellow");
+    return false;
+  }
+}
+
+// Copia de seguridad: cada guardado crea además una rama con esa versión exacta,
+// para poder recuperar cualquier estado anterior desde el propio GitHub.
+async function createBackupBranch(commitSha, timestamp) {
+  const branchName = `backup-${timestamp}`;
+  try {
+    await fetch(`https://api.github.com/repos/${gitConfig.repo}/git/refs`, {
+      method: "POST",
+      headers: {
+        "Authorization": `token ${gitConfig.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ref: `refs/heads/${branchName}`, sha: commitSha }),
+    });
+  } catch (e) {
+    console.error("No se pudo crear la rama de respaldo", e);
   }
 }
 
@@ -382,9 +387,16 @@ function buildCard(book) {
     const cb = document.createElement("input");
     cb.type = "checkbox";
     cb.checked = book.status === "leido";
-    cb.addEventListener("change", () => {
+    cb.addEventListener("change", async () => {
+      if (isReadOnly) {
+        showToast("Conecta tu repositorio de GitHub (☁️) para poder guardar cambios");
+        cb.checked = !cb.checked;
+        return;
+      }
+      const previousStatus = book.status;
       book.status = cb.checked ? "leido" : "leyendo";
-      saveBooks();
+      const ok = await saveBooks();
+      if (!ok) book.status = previousStatus;
       renderAll();
     });
     label.appendChild(cb);
@@ -528,28 +540,26 @@ function closeGitModal() {
   $("#gitModalOverlay").hidden = true;
 }
 
-function disconnectGit() {
-  if (confirm("¿Seguro que quieres desconectar la sincronización de GitHub?\n(Tus libros se conservarán en el navegador y en GitHub, pero no se seguirán sincronizando)")) {
-    gitConfig = null;
-    gitFileSha = null;
-    localStorage.removeItem(GIT_CONFIG_KEY);
-    updateGitStatusUI("red");
-    closeGitModal();
-    showToast("GitHub desconectado");
+async function disconnectGit() {
+  if (!confirm("¿Seguro que quieres desconectar la sincronización de GitHub?\n(Tus libros se conservan en tu repositorio; la app pasará a modo solo lectura)")) {
+    return;
   }
+  gitConfig = null;
+  gitFileSha = null;
+  isReadOnly = true;
+  localStorage.removeItem(GIT_CONFIG_KEY);
+  await loadBooks(); // recarga el books.json de ejemplo en modo solo lectura
+  renderAll();
+  updateGitStatusUI("red");
+  closeGitModal();
+  showToast("GitHub desconectado");
 }
 
 async function testAndConnectGit() {
   const token = $("#gitToken").value.trim();
-  let repo = $("#gitRepo").value.trim();
-  // Limpiar posibles barras extra que haya puesto el usuario al final del repo
-  repo = repo.replace(/\/+$/, '');
-  
-  let branch = $("#gitBranch").value.trim() || "main";
-  
-  let path = $("#gitPath").value.trim() || "books.json";
-  // Limpiar barra inicial si la puso
-  path = path.replace(/^\/+/, '');
+  const repo = $("#gitRepo").value.trim().replace(/\/+$/, "");
+  const branch = $("#gitBranch").value.trim() || "main";
+  const path = $("#gitPath").value.trim().replace(/^\/+/, "") || "books.json";
 
   if (!token || !repo) {
     showToast("Introduce el Token y el Repositorio");
@@ -561,60 +571,30 @@ async function testAndConnectGit() {
   connectBtn.textContent = "Conectando...";
   connectBtn.disabled = true;
 
+  // Probamos la conexión con esta configuración antes de darla por buena
+  gitConfig = { token, repo, branch, path };
+
   try {
-    const url = `https://api.github.com/repos/${repo}/contents/${path}?ref=${branch}`;
-    const getUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
-    const res = await fetch(getUrl, {
-      headers: { 
-        "Authorization": `token ${token}`
-      }
+    const res = await fetch(githubContentsUrl(), {
+      headers: { "Authorization": `token ${token}` }
     });
 
     if (res.ok) {
-      const data = await res.json();
-      const sha = data.sha;
-      const content = fromBase64Utf8(data.content);
-      let parsedBooks = [];
-      try {
-        parsedBooks = JSON.parse(content);
-      } catch (e) {
-        console.error("Error al parsear archivo JSON existente en GitHub:", e);
-      }
-
-      connectBtn.textContent = originalText;
-      connectBtn.disabled = false;
-
-      // Para no perder libros añadidos antes de conectar, mezclamos los locales nuevos
-      const githubBooksIds = new Set(parsedBooks.map(b => b.id));
-      const localNewBooks = books.filter(b => !githubBooksIds.has(b.id));
-      
-      books = [...parsedBooks, ...localNewBooks];
-      gitFileSha = sha;
-      gitConfig = { token, repo, branch, path };
+      // El archivo ya existe en GitHub: es la única fuente de la verdad,
+      // así que lo cargamos tal cual, sin mezclar con nada de esta sesión.
+      await loadBooksFromGitHub();
       localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
-      
       renderAll();
-      updateGitStatusUI("green");
       closeGitModal();
-      
-      if (localNewBooks.length > 0) {
-        showToast(`¡Conectado! Se han cargado ${parsedBooks.length} libros y conservado ${localNewBooks.length} locales`);
-        // Como hemos fusionado datos locales nuevos, forzamos un guardado para subirlo a GitHub
-        saveBooks();
-      } else {
-        showToast(`¡Conectado! Se han cargado ${books.length} libros de GitHub`);
-      }
+      showToast(`¡Conectado! Se han cargado ${books.length} libros de GitHub`);
     } else if (res.status === 404) {
-      gitConfig = { token, repo, branch, path };
-      localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
-      
+      // El archivo no existe todavía: lo creamos con lo que haya ahora mismo
+      // en memoria (normalmente el books.json de ejemplo, en modo solo lectura).
       const payload = {
         message: "Crear archivo de biblioteca",
         content: toBase64Utf8(JSON.stringify(books, null, 2))
       };
-      
-      const createRes = await fetch(url, {
+      const createRes = await fetch(githubContentsUrl(false), {
         method: "PUT",
         headers: {
           "Authorization": `token ${token}`,
@@ -622,27 +602,25 @@ async function testAndConnectGit() {
         },
         body: JSON.stringify(payload)
       });
+      if (!createRes.ok) throw new Error(`Fallo al crear archivo: Error ${createRes.status}`);
 
-      connectBtn.textContent = originalText;
-      connectBtn.disabled = false;
-
-      if (createRes.ok) {
-        const createData = await createRes.json();
-        gitFileSha = createData.content.sha;
-        updateGitStatusUI("green");
-        closeGitModal();
-        showToast("¡Conectado! Archivo creado en GitHub");
-      } else {
-        throw new Error(`Fallo al crear archivo: Error ${createRes.status}`);
-      }
+      const createData = await createRes.json();
+      gitFileSha = createData.content.sha;
+      isReadOnly = false;
+      localStorage.setItem(GIT_CONFIG_KEY, JSON.stringify(gitConfig));
+      updateGitStatusUI("green");
+      closeGitModal();
+      showToast("¡Conectado! Archivo creado en GitHub");
     } else {
       throw new Error(`Credenciales/Permisos: Error ${res.status}`);
     }
   } catch (err) {
     console.error("Error en testAndConnectGit:", err);
+    gitConfig = null; // la conexión probada ha fallado: no la damos por buena
+    showToast(`Error: ${err.message}. Revisa la consola (F12)`);
+  } finally {
     connectBtn.textContent = originalText;
     connectBtn.disabled = false;
-    showToast(`Error: ${err.message}. Revisa la consola (F12)`);
   }
 }
 
@@ -745,7 +723,11 @@ function updateStarsUI() {
   });
 }
 
-function saveFromModal() {
+async function saveFromModal() {
+  if (isReadOnly) {
+    showToast("Conecta tu repositorio de GitHub (☁️) para poder guardar libros");
+    return;
+  }
   const title = $("#titleInput").value.trim();
   if (!title) {
     showToast("Escribe al menos el título del libro");
@@ -771,22 +753,42 @@ function saveFromModal() {
     recommendation: selectedStatus === "quiero_leer" ? "" : $("#recommendationInput").value.trim(),
   };
 
+  // Guardamos una copia por si GitHub rechaza la escritura y hay que deshacer
+  const previousBooks = books;
   if (editingId) {
     const idx = books.findIndex(b => b.id === editingId);
-    books[idx] = { ...books[idx], ...data };
+    books = books.map((b, i) => i === idx ? { ...b, ...data } : b);
   } else {
-    books.push({ id: uid(), ...data });
+    books = [...books, { id: uid(), ...data }];
   }
-  saveBooks();
+
+  const ok = await saveBooks();
+  if (!ok) {
+    books = previousBooks; // deshacemos el cambio en memoria si no se pudo guardar
+    renderAll();
+    return;
+  }
   renderAll();
   closeModal();
   showToast("Libro guardado");
 }
 
-function deleteCurrent() {
+async function deleteCurrent() {
+  if (isReadOnly) {
+    showToast("Conecta tu repositorio de GitHub (☁️) para poder eliminar libros");
+    return;
+  }
   if (!editingId) return;
+
+  const previousBooks = books;
   books = books.filter(b => b.id !== editingId);
-  saveBooks();
+
+  const ok = await saveBooks();
+  if (!ok) {
+    books = previousBooks;
+    renderAll();
+    return;
+  }
   renderAll();
   closeModal();
   showToast("Libro eliminado");
@@ -913,44 +915,35 @@ function selectSearchResult(d) {
 }
 
 /* ---------------- FOTO DE PORTADA (cámara) ---------------- */
+// Tamaño máximo (en ancho) y calidad para las portadas subidas por el usuario.
+// Sin esto, una foto de cámara (varios MB) acababa embebida tal cual en el
+// books.json, que GitHub deja de poder leer a partir de 1 MB de tamaño total.
+const COVER_MAX_WIDTH = 500;
+const COVER_JPEG_QUALITY = 0.72;
+
 function handleCameraInput(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => setCoverPreview(reader.result);
+  reader.onload = () => compressImage(reader.result, setCoverPreview);
   reader.readAsDataURL(file);
 }
 
-/* ---------------- IMPORT / EXPORT JSON ---------------- */
-function exportJson() {
-  const blob = new Blob([JSON.stringify(books, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "books.json";
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast("Archivo books.json descargado");
-}
-
-function importJson(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const parsed = JSON.parse(reader.result);
-      if (!Array.isArray(parsed)) throw new Error("formato inválido");
-      books = parsed;
-      saveBooks();
-      renderAll();
-      showToast("Biblioteca importada correctamente");
-    } catch (err) {
-      showToast("El archivo no tiene un formato válido");
-    }
+// Redimensiona y comprime una imagen (data URL) antes de guardarla, para que
+// las portadas nunca disparen el tamaño del books.json.
+function compressImage(dataUrl, onDone) {
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, COVER_MAX_WIDTH / img.width);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    onDone(canvas.toDataURL("image/jpeg", COVER_JPEG_QUALITY));
   };
-  reader.readAsText(file);
-  e.target.value = "";
+  img.onerror = () => onDone(dataUrl); // si algo falla, seguimos con la original
+  img.src = dataUrl;
 }
 
 /* ---------------- TOAST ---------------- */
