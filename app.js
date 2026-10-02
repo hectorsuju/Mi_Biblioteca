@@ -228,15 +228,15 @@ function renderAll() {
 
 function renderStats() {
   const readBooks = books.filter(b => b.status === "leido");
-  
+
   // 1. Total libros leídos
   $("#statTotalBooks").textContent = readBooks.length;
-  
+
   // 2. Leídos este año
   const currentYear = new Date().getFullYear().toString();
   const yearBooks = readBooks.filter(b => b.readDate && b.readDate.startsWith(currentYear));
   $("#statYearBooks").textContent = yearBooks.length;
-  
+
   // Función auxiliar para sacar el más frecuente
   const getMostFrequent = (arr) => {
     if (arr.length === 0) return "—";
@@ -259,7 +259,7 @@ function renderStats() {
   let topAuthor = getMostFrequent(authors);
   if (topAuthor.length > 20) topAuthor = topAuthor.substring(0, 18) + "...";
   $("#statTopAuthor").textContent = topAuthor;
-  $("#statTopAuthor").title = topAuthor; 
+  $("#statTopAuthor").title = topAuthor;
 
   // 4. Género favorito
   const genres = readBooks.map(b => b.genre).filter(Boolean);
@@ -329,7 +329,7 @@ function buildCard(book) {
   else if (book.status === "leyendo") flag.textContent = "Leyendo";
   else if (book.status === "abandonado") flag.textContent = "Abandonado";
   else flag.textContent = "Pendiente";
-  
+
   cover.appendChild(flag);
   card.appendChild(cover);
 
@@ -493,7 +493,7 @@ function formatReadDate(value) {
   const [year, month] = (value || "").split("-");
   if (!year || !month) return "";
   const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
-                 "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
   const idx = Number(month) - 1;
   if (idx < 0 || idx > 11) return value;
   return `Leído en ${meses[idx]} de ${year}`;
@@ -972,8 +972,7 @@ async function runSearch(q) {
 
     if (uniqueResults.length === 0) {
       list.innerHTML = `<div class="ac-empty">Sin resultados. Puedes rellenar los campos a mano y añadir una foto.</div>`;
-      // Aún sin resultados, ofrecemos el enlace a Casa del Libro
-      list.appendChild(buildCasaDelLibroFooter(q));
+      list.appendChild(buildExternalSearchFooter(q));
       return;
     }
 
@@ -981,10 +980,10 @@ async function runSearch(q) {
 
     // Badge de origen para ayudar a identificar la fuente
     const sourceBadge = {
-      "google":    { label: "Google Books", color: "#4285F4" },
-      "google2":   { label: "Google Books", color: "#4285F4" },
+      "google": { label: "Google Books", color: "#4285F4" },
+      "google2": { label: "Google Books", color: "#4285F4" },
       "openlibrary": { label: "Open Library", color: "#e57300" },
-      "ol-isbn":   { label: "ISBN exacto",  color: "#2e7d32" },
+      "ol-isbn": { label: "ISBN exacto", color: "#2e7d32" },
     };
 
     uniqueResults.forEach(d => {
@@ -1008,35 +1007,59 @@ async function runSearch(q) {
       list.appendChild(item);
     });
 
-    // Pie del desplegable: enlace directo a Casa del Libro
-    list.appendChild(buildCasaDelLibroFooter(q));
+    // Pie del desplegable: enlaces a tiendas externas
+    list.appendChild(buildExternalSearchFooter(q));
 
   } catch (e) {
     console.error("Error en runSearch:", e);
     list.innerHTML = `<div class="ac-empty">No se pudo buscar. Rellena los campos a mano.</div>`;
-    list.appendChild(buildCasaDelLibroFooter(q));
+    list.appendChild(buildExternalSearchFooter(q));
   }
 }
 
-// Construye el pie «Buscar en Casa del Libro» que aparece siempre al final
-// del desplegable. Casa del Libro no tiene API pública accesible desde el
-// navegador (CORS bloqueado), así que abrimos su buscador en una pestaña nueva.
-function buildCasaDelLibroFooter(q) {
-  const url = `https://www.casadellibro.com/busqueda-generica?q=${encodeURIComponent(q)}`;
-  const footer = document.createElement("a");
-  footer.href = url;
-  footer.target = "_blank";
-  footer.rel = "noopener noreferrer";
-  footer.className = "ac-cdl-footer";
-  footer.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-      <polyline points="15 3 21 3 21 9"/>
-      <line x1="10" y1="14" x2="21" y2="3"/>
-    </svg>
-    Buscar «${escapeHtml(q.length > 40 ? q.slice(0, 38) + '…' : q)}» en <strong>Casa del Libro</strong>`;
-  // Evitar que el clic cierre el desplegable antes de abrir la pestaña
-  footer.addEventListener("click", (e) => e.stopPropagation());
+// Construye el pie de búsqueda externa que aparece siempre al final del
+// desplegable. Ni Casa del Libro ni Amazon tienen API pública accesible desde
+// el navegador (CORS bloqueado / requieren credenciales de afiliado), así que
+// abrimos sus buscadores en una pestaña nueva con la consulta ya escrita.
+function buildExternalSearchFooter(q) {
+  const qs = encodeURIComponent(q);
+  const shortQ = escapeHtml(q.length > 32 ? q.slice(0, 30) + '…' : q);
+
+  const stores = [
+    {
+      name: "Casa del Libro",
+      url: `https://www.casadellibro.com/busqueda-generica?q=${qs}`,
+      color: "#b35e00",
+      icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,
+    },
+    {
+      name: "Amazon",
+      url: `https://www.amazon.es/s?k=${qs}&i=stripbooks`,
+      color: "#e47911",
+      icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>`,
+    },
+  ];
+
+  const footer = document.createElement("div");
+  footer.className = "ac-ext-footer";
+
+  const label = document.createElement("span");
+  label.className = "ac-ext-label";
+  label.textContent = `«${shortQ}» en:`;
+  footer.appendChild(label);
+
+  stores.forEach(store => {
+    const link = document.createElement("a");
+    link.href = store.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.className = "ac-ext-link";
+    link.style.setProperty("--store-color", store.color);
+    link.innerHTML = `${store.icon} ${store.name}`;
+    link.addEventListener("click", (e) => e.stopPropagation());
+    footer.appendChild(link);
+  });
+
   return footer;
 }
 
